@@ -31,9 +31,7 @@ To make interview preparation more personalized, interactive, and accessible thr
 - **Project Name:** InterviewMate AI
 - **Category:** Artificial Intelligence / EdTech
 - **Developed Using:** IBM BOB AI
-- **Developer:** [Your Name]
-- **Live Demo:** [Add your deployed app link]
-- **License:** To be decided
+- **Developer:** Yash Tolani
 
 ## 🔮 Future Scope
 - Voice-based mock interviews
