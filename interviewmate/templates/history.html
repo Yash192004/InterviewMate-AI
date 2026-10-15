@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+{% block title %}History – InterviewMate AI{% endblock %}
+{% block page_title %}History{% endblock %}
+
+{% block content %}
+<div class="page-intro animate-fade-up">
+  <h2 class="page-heading">Your History</h2>
+  <p class="page-subheading">Review past interviews, resume analyses, and track your progress over time.</p>
+</div>
+
+<!-- Candidate Info Card -->
+{% if user.resume_filename %}
+<div class="card history-profile-card animate-fade-up delay-1">
+  <div class="history-profile-inner">
+    <div class="history-avatar">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <div class="history-profile-info">
+      <h3 class="history-candidate-name">{{ user.candidate_name or 'Candidate' }}</h3>
+      <div class="history-profile-meta">
+        {% if user.experience_level %}<span class="tag tag--primary tag-sm">{{ user.experience_level | title }}</span>{% endif %}
+        {% if user.education %}<span class="history-meta-item">{{ user.education }}</span>{% endif %}
+        {% if user.experience_years %}<span class="history-meta-item">{{ user.experience_years }} yr{{ 's' if user.experience_years != 1 }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="history-profile-actions">
+      <div class="history-file-info">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>{{ user.resume_filename }}</span>
+        {% if user.resume_uploaded_at %}<span class="muted-text"> · {{ user.resume_uploaded_at.strftime('%b %d, %Y') }}</span>{% endif %}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteResume()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        Delete Resume
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div class="history-tabs animate-fade-up delay-2">
+  <button class="htab active" data-tab="interviews">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Interviews ({{ sessions | length }})
+  </button>
+  <button class="htab" data-tab="resume">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Resume Analysis
+  </button>
+  <button class="htab" data-tab="ats">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    ATS Scores ({{ ats_scores | length }})
+  </button>
+  <button class="htab" data-tab="progress">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    Progress
+  </button>
+</div>
+
+<!-- Tab: Interviews -->
+<div class="htab-content active" id="tab-interviews">
+  {% if sessions %}
+    <div class="history-session-list">
+      {% for s in sessions %}
+      <div class="history-session-card animate-fade-up" data-session="{{ s.id }}">
+        <div class="hsc-header">
+          <div class="hsc-role-wrap">
+            <div class="hsc-role">{{ s.job_role }}</div>
+            <div class="hsc-meta">
+              <span class="tag tag--ghost tag-sm">{{ s.interview_type | title }}</span>
+              <span class="tag tag--ghost tag-sm">{{ s.difficulty | title }}</span>
+              <span class="hsc-date">{{ s.created_at.strftime('%b %d, %Y · %I:%M %p') }}</span>
+            </div>
+          </div>
+          <div class="hsc-score-wrap">
+            {% if s.overall_score %}
+              <div class="hsc-score {% if s.overall_score >= 7 %}score-good{% elif s.overall_score >= 5 %}score-avg{% else %}score-low{% endif %}">
+                {{ '%.1f'|format(s.overall_score) }}<small>/10</small>
+              </div>
+            {% else %}
+              <div class="tag tag--warning">In Progress</div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if s.skill_breakdown %}
+          {% set bd = s.skill_breakdown | from_json %}
+          <div class="hsc-breakdown">
+            {% for topic, score in bd.items() %}
+              <div class="hsc-bd-item">
+                <span class="hsc-bd-label">{{ topic }}</span>
+                <div class="hsc-bd-bar-wrap">
+                  <div class="hsc-bd-bar {% if score >= 7 %}bar-good{% elif score >= 5 %}bar-avg{% else %}bar-low{% endif %}" style="width: {{ (score/10*100)|int }}%"></div>
+                </div>
+                <span class="hsc-bd-score">{{ '%.1f'|format(score) }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="hsc-actions">
+          {% if s.status == 'completed' %}
+            <a href="{{ url_for('results_page', session_id=s.id) }}" class="btn btn-primary btn-sm">View Full Report</a>
+          {% else %}
+            <span class="tag tag--warning">In Progress</span>
+          {% endif %}
+          <button class="btn btn-danger btn-sm" onclick="deleteSession({{ s.id }}, this)">Delete</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="history-empty">
+      <div class="history-empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h3>No interviews yet</h3>
+      <p>Complete your first mock interview to see your history here.</p>
+      <a href="{{ url_for('interview_page') }}" class="btn btn-primary mt-3">Start Interview</a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Resume Analysis -->
+<div class="htab-content" id="tab-resume">
+  {% if user.resume_filename %}
+    <div class="history-resume-grid">
+      <!-- Career Field Scores -->
+      {% if career_scores %}
+      <div class="card animate-fade-up">
+        <div class="card-header">
+          <h3 class="card-title">Career Field Match Scores</h3>
+          <span class="card-badge">AI scored out of 100</span>
+        </div>
+        <div class="career-score-list">
+          {% set sorted_scores = career_scores.items() | sort(attribute='1', reverse=True) %}
+          {% for role, score in sorted_scores %}
+          <div class="career-score-item">
+            <div class="cs-label">{{ role }}</div>
+            <div class="cs-bar-wrap">
+              <div class="cs-bar {% if score >= 70 %}cs-bar-high{% elif score >= 45 %}cs-bar-mid{% else %}cs-bar-low{% endif %}" style="width: {{ score }}%"></div>
+            </div>
+            <div class="cs-score {% if score >= 70 %}score-good{% elif score >= 45 %}score-avg{% else %}score-low{% endif %}">{{ score }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Strengths & Weaknesses -->
+      <div class="card animate-fade-up delay-1">
+        <div class="card-header"><h3 class="card-title">Resume Strengths & Gaps</h3></div>
+        {% if user.resume_strengths %}
+          <div class="sw-section">
+            <div class="sw-heading sw-heading--good">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Strengths
+            </div>
+            <ul class="sw-list">
+              {% for s in user.resume_strengths | from_json_list %}<li>{{ s }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+        {% if user.resume_weaknesses %}
+          <div class="sw-section mt-3">
+            <div class="sw-heading sw-heading--bad">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Areas to Improve
+            </div>
+            <ul class="sw-list sw-list--bad">
+              {% for w in user.resume_weaknesses | from_json_list %}<li>{{ w }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Skills & Tech Stack -->
+    {% if user.skills %}
+    <div class="card mt-3 animate-fade-up delay-2">
+      <div class="card-header"><h3 class="card-title">Detected Skills</h3></div>
+      <div class="skill-tags">
+        {% for s in user.skills | from_json_list %}<span class="tag tag--primary">{{ s }}</span>{% endfor %}
+      </div>
+      {% if user.tech_stack %}
+        <div class="card-header mt-3"><h4 class="card-title">Tech Stack</h4></div>
+        <div class="skill-tags">
+          {% for t in user.tech_stack | from_json_list %}<span class="tag tag--cyan">{{ t }}</span>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  {% else %}
+    <div class="history-empty">
+      <div class="history-empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <h3>No resume uploaded</h3>
+      <p>Upload your resume to see the analysis here.</p>
+      <a href="{{ url_for('resume_page') }}" class="btn btn-primary mt-3">Upload Resume</a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Tab: ATS Scores -->
+<div class="htab-content" id="tab-ats">
+  {% if ats_scores %}
+    <div class="ats-grid">
+      {% for role, ats in ats_scores.items() %}
+      <div class="card ats-card animate-fade-up">
+        <div class="ats-card-header">
+          <div>
+            <div class="ats-role">{{ role }}</div>
+            <div class="ats-grade-wrap">
+              <span class="ats-grade grade-{{ ats.grade | lower }}">{{ ats.grade }}</span>
+              <span class="muted-text" style="font-size:.8rem;">{{ ats.keyword_density | title }} keyword density</span>
+            </div>
+          </div>
+          <div class="ats-score-circle {% if ats.ats_score >= 70 %}ats-good{% elif ats.ats_score >= 50 %}ats-avg{% else %}ats-low{% endif %}">
+            {{ ats.ats_score }}<small>/100</small>
+          </div>
+        </div>
+        <div class="ats-summary">{{ ats.summary }}</div>
+
+        {% if ats.relevant_keywords %}
+        <div class="ats-section">
+          <div class="ats-section-title ats-title-good">✓ Relevant Keywords</div>
+          <div class="skill-tags">
+            {% for k in ats.relevant_keywords[:8] %}<span class="tag tag--success tag-sm">{{ k }}</span>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if ats.missing_keywords %}
+        <div class="ats-section">
+          <div class="ats-section-title ats-title-bad">✗ Missing Keywords</div>
+          <div class="skill-tags">
+            {% for k in ats.missing_keywords[:8] %}<span class="tag tag--danger tag-sm">{{ k }}</span>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if ats.improvement_suggestions %}
+        <div class="ats-section">
+          <div class="ats-section-title">💡 Suggestions</div>
+          <ul class="ats-suggestions">
+            {% for s in ats.improvement_suggestions %}<li>{{ s }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="history-empty">
+      <div class="history-empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <h3>No ATS analyses yet</h3>
+      <p>Go to Resume Analyzer and run an ATS check for a specific job role.</p>
+      <a href="{{ url_for('resume_page') }}" class="btn btn-primary mt-3">Analyze Resume</a>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Tab: Progress -->
+<div class="htab-content" id="tab-progress">
+  {% set completed = sessions | selectattr('status', 'equalto', 'completed') | list %}
+  {% if completed | length >= 2 %}
+    <div class="card animate-fade-up">
+      <div class="card-header">
+        <h3 class="card-title">Score Progression</h3>
+        <span class="card-badge">{{ completed | length }} completed interviews</span>
+      </div>
+      <div class="chart-container chart-medium">
+        <canvas id="progressHistoryChart"></canvas>
+      </div>
+    </div>
+    <div class="history-compare-grid mt-3">
+      <div class="card animate-fade-up delay-1">
+        <div class="card-header"><h3 class="card-title">Best Performance</h3></div>
+        {% set best = completed | sort(attribute='overall_score', reverse=True) | first %}
+        <div class="compare-item compare-good">
+          <div class="compare-score">{{ '%.1f'|format(best.overall_score) }}<small>/10</small></div>
+          <div>
+            <div class="compare-role">{{ best.job_role }}</div>
+            <div class="muted-text" style="font-size:.8rem;">{{ best.created_at.strftime('%b %d, %Y') }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="card animate-fade-up delay-2">
+        <div class="card-header"><h3 class="card-title">Most Recent</h3></div>
+        {% set recent = completed | first %}
+        <div class="compare-item">
+          <div class="compare-score {% if recent.overall_score >= 7 %}compare-good{% elif recent.overall_score >= 5 %}compare-avg{% else %}compare-low{% endif %}">{{ '%.1f'|format(recent.overall_score) }}<small>/10</small></div>
+          <div>
+            <div class="compare-role">{{ recent.job_role }}</div>
+            <div class="muted-text" style="font-size:.8rem;">{{ recent.created_at.strftime('%b %d, %Y') }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="card animate-fade-up delay-3">
+        <div class="card-header"><h3 class="card-title">Total Interviews</h3></div>
+        <div class="compare-item">
+          <div class="compare-score compare-purple">{{ completed | length }}<small> done</small></div>
+          <div>
+            {% set avg = (completed | map(attribute='overall_score') | select | list | sum) / (completed | length) %}
+            <div class="compare-role">Avg: {{ '%.1f'|format(avg) }}/10</div>
+            <div class="muted-text" style="font-size:.8rem;">Keep practicing!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% elif completed %}
+    <div class="card animate-fade-up">
+      <div class="history-empty" style="padding:40px">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>
+        <h3>Complete more interviews to see progress</h3>
+        <p>You need at least 2 completed interviews for a progress comparison.</p>
+        <a href="{{ url_for('interview_page') }}" class="btn btn-primary mt-3">Start Interview</a>
+      </div>
+    </div>
+  {% else %}
+    <div class="history-empty">
+      <div class="history-empty-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>
+      </div>
+      <h3>No progress data yet</h3>
+      <p>Complete interviews to track your improvement over time.</p>
+      <a href="{{ url_for('interview_page') }}" class="btn btn-primary mt-3">Start Interview</a>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tab switching
+  document.querySelectorAll('.htab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.htab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.htab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Progress chart
+  {% set completed = sessions | selectattr('status', 'equalto', 'completed') | list %}
+  {% if completed | length >= 2 %}
+  const histScores = {{ completed | map(attribute='overall_score') | list | tojson }};
+  const histDates  = {{ completed | map(attribute='created_at') | map('strftime', '%b %d') | list | tojson }};
+  const ctx = document.getElementById('progressHistoryChart');
+  if (ctx) {
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: histDates.reverse(),
+        datasets: [{
+          label: 'Score',
+          data: histScores.reverse(),
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99,102,241,0.12)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#6366f1',
+          pointRadius: 5,
+          tension: 0.4,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 10, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+  {% endif %}
+
+  function deleteSession(id, btn) {
+    if (!confirm('Delete this interview session and all its data?')) return;
+    fetch('/api/delete-session/' + id, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          const card = document.querySelector('[data-session="' + id + '"]');
+          if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 300); }
+        } else alert(d.error || 'Delete failed');
+      });
+  }
+
+  function deleteResume() {
+    if (!confirm('Delete your resume and all analysis data? This cannot be undone.')) return;
+    fetch('/api/delete-resume', { method: 'DELETE' })
+      .then(r => r.json())
+      .then(d => { if (d.success) location.reload(); else alert(d.error || 'Delete failed'); });
+  }
+
+  // Animate career score bars
+  setTimeout(() => {
+    document.querySelectorAll('.cs-bar').forEach(bar => {
+      const w = bar.style.width; bar.style.width = '0'; 
+      setTimeout(() => bar.style.width = w, 50);
+    });
+  }, 300);
+</script>
+{% endblock %}

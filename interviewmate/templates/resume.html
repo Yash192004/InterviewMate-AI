@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Resume Analyzer – InterviewMate AI{% endblock %}
+{% block page_title %}Resume Analyzer{% endblock %}
+
+{% block content %}
+<div class="page-intro animate-fade-up">
+  <h2 class="page-heading">Smart Resume Analyzer</h2>
+  <p class="page-subheading">Upload your resume to get career field scores, ATS compatibility, strengths, gaps, and personalized recommendations.</p>
+</div>
+
+<!-- Step 1: Upload -->
+<div class="resume-flow">
+  <div class="card upload-card animate-fade-up delay-1">
+    <div class="card-header">
+      <h3 class="card-title">
+        <span class="step-badge">1</span> Upload Resume
+      </h3>
+      <span class="card-badge">PDF · TXT · DOC · DOCX</span>
+    </div>
+
+    {% if user.resume_filename %}
+      <div class="current-file-banner">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Current: <strong>{{ user.resume_filename }}</strong>
+        {% if user.resume_uploaded_at %}<span class="muted-text"> · {{ user.resume_uploaded_at.strftime('%b %d, %Y') }}</span>{% endif %}
+        <span class="tag tag--success ml-2">Analyzed</span>
+      </div>
+    {% endif %}
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <p class="drop-text">Drag &amp; drop your resume here</p>
+      <p class="drop-sub">or click to browse files</p>
+      <input type="file" id="resumeFile" accept=".pdf,.txt,.doc,.docx" class="file-input" />
+    </div>
+    <button class="btn btn-primary btn-full mt-3" id="analyzeBtn" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Analyze Resume with AI
+    </button>
+    <div class="loading-bar" id="loadingBar" style="display:none;">
+      <div class="loading-fill" id="loadingFill"></div>
+      <p class="loading-text" id="loadingText">Analyzing resume…</p>
+    </div>
+  </div>
+
+  <!-- Step 2: Career Field Scores -->
+  <div id="careerScoresSection" class="{% if not analysis.get('career_field_scores') %}hidden{% endif %} animate-fade-up delay-2">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><span class="step-badge">2</span> Career Field Match Scores</h3>
+        <span class="tag tag--success" id="analyzedBadge">✓ AI Analyzed</span>
+      </div>
+      <p class="muted-text mb-3" id="candidateNameLine">
+        {% if analysis.get('name') %}<strong>{{ analysis.name }}</strong> · {% endif %}
+        {% if analysis.get('experience_level') %}{{ analysis.experience_level | title }} · {% endif %}
+        {{ analysis.get('education', '') }}
+      </p>
+
+      <!-- Career Scores Bar Chart -->
+      <div id="careerScoresList" class="career-score-list">
+        {% if analysis.get('career_field_scores') %}
+          {% set sorted = analysis.career_field_scores.items() | sort(attribute='1', reverse=True) %}
+          {% for role, score in sorted %}
+            <div class="career-score-item">
+              <div class="cs-label">{{ role }}</div>
+              <div class="cs-bar-wrap">
+                <div class="cs-bar {% if score >= 70 %}cs-bar-high{% elif score >= 45 %}cs-bar-mid{% else %}cs-bar-low{% endif %}" style="width: {{ score }}%; transition: width 1.2s ease {{ loop.index * 0.05 }}s"></div>
+              </div>
+              <div class="cs-score {% if score >= 70 %}score-good{% elif score >= 45 %}score-avg{% else %}score-low{% endif %}">{{ score }}</div>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <!-- Suggested Roles -->
+      <div id="suggestedRolesWrap" class="mt-3" {% if not analysis.get('suggested_roles') %}style="display:none"{% endif %}>
+        <div class="section-label">🎯 Best Fit Roles</div>
+        <div class="skill-tags mt-2" id="suggestedRolesTags">
+          {% if analysis.get('suggested_roles') %}
+            {% for r in analysis.suggested_roles %}<span class="tag tag--purple tag-lg">{{ r }}</span>{% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Strengths & Weaknesses -->
+  <div id="swSection" class="{% if not analysis.get('strengths') %}hidden{% endif %} animate-fade-up delay-2">
+    <div class="sw-grid">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><span class="step-badge step-badge--green">✓</span> Resume Strengths</h3>
+        </div>
+        <ul class="sw-list" id="strengthsList">
+          {% if analysis.get('strengths') %}
+            {% for s in analysis.strengths %}<li>{{ s }}</li>{% endfor %}
+          {% endif %}
+        </ul>
+        {% if analysis.get('what_to_keep') %}
+        <div class="sw-tip mt-3">
+          <div class="sw-tip-label">Keep These</div>
+          {% for k in analysis.what_to_keep %}<div class="sw-tip-item">{{ k }}</div>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><span class="step-badge step-badge--red">!</span> Areas to Improve</h3>
+        </div>
+        <ul class="sw-list sw-list--bad" id="weaknessesList">
+          {% if analysis.get('weaknesses') %}
+            {% for w in analysis.weaknesses %}<li>{{ w }}</li>{% endfor %}
+          {% endif %}
+        </ul>
+        {% if analysis.get('what_to_change') %}
+        <div class="sw-tip sw-tip--red mt-3">
+          <div class="sw-tip-label">Change These</div>
+          {% for c in analysis.what_to_change %}<div class="sw-tip-item">{{ c }}</div>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Skills detected -->
+  <div id="skillsSection" class="{% if not analysis.get('skills') %}hidden{% endif %} animate-fade-up delay-3">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><span class="step-badge">3</span> Detected Skills</h3>
+      </div>
+      <div class="skill-tags" id="skillTags">
+        {% if analysis.get('skills') %}
+          {% for s in analysis.skills %}<span class="tag tag--primary">{{ s }}</span>{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5: ATS Check -->
+  <div id="atsSection" class="{% if not user.resume_filename %}hidden{% endif %} animate-fade-up delay-3">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><span class="step-badge">4</span> ATS Compatibility Check</h3>
+        <span class="card-badge">Check for any job role</span>
+      </div>
+      <p class="muted-text mb-3">Enter a job role to check how well your resume passes Applicant Tracking Systems (ATS).</p>
+      <div class="ats-input-row">
+        <input type="text" id="atsJobRole" class="form-input" placeholder="e.g. Data Analyst, Software Engineer, Cloud Engineer" />
+        <button class="btn btn-primary" id="atsCheckBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Check ATS
+        </button>
+      </div>
+      <div id="atsLoading" class="ai-thinking mt-3" style="display:none;">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span style="margin-left:8px;font-size:.85rem;color:#64748b;">Analyzing ATS compatibility…</span>
+      </div>
+      <div id="atsResult" style="display:none;margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <!-- Step 6: Career Interest Questions -->
+  <div id="careerQuestionsSection" class="{% if not user.resume_filename %}hidden{% endif %} animate-fade-up delay-3">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><span class="step-badge">5</span> Personalize Your Recommendations</h3>
+        <span class="card-badge">3 min</span>
+      </div>
+      <p class="muted-text mb-3">Answer a few questions so we can tailor the career recommendations to your goals.</p>
+
+      <div id="careerQForm">
+        {% for q in career_interest_questions %}
+        <div class="form-group career-q-group">
+          <label class="form-label">{{ q.question }}</label>
+          {% if q.type == 'choice' %}
+            <div class="career-choice-grid">
+              {% for opt in q.options %}
+                <label class="career-choice-btn">
+                  <input type="radio" name="cq_{{ q.id }}" value="{{ opt }}" {% if loop.first %}data-default{% endif %} />
+                  <span>{{ opt }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          {% else %}
+            <input type="text" class="form-input" name="cq_{{ q.id }}" placeholder="{{ q.get('placeholder', '') }}" />
+          {% endif %}
+        </div>
+        {% endfor %}
+        <button class="btn btn-primary" id="saveInterestsBtn">
+          Get Personalized Recommendations
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+        <div id="interestsLoading" class="ai-thinking mt-3" style="display:none;">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span style="margin-left:8px;font-size:.85rem;color:#64748b;">Generating personalized plan…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recommendation Result -->
+  <div id="recommendationSection" class="{% if not career_recommendation %}hidden{% endif %} animate-fade-up">
+    <div class="card recommendation-card">
+      <div class="card-header">
+        <h3 class="card-title">🎯 Your Personalized Career Recommendation</h3>
+      </div>
+      <div id="recommendationContent">
+        {% if career_recommendation %}
+          <div class="rec-role">{{ career_recommendation.get('recommended_role', '') }}</div>
+          <p class="rec-reason">{{ career_recommendation.get('recommendation_reason', '') }}</p>
+          {% if career_recommendation.get('alignment_score') %}
+            <div class="rec-align">
+              <span>Resume alignment: </span>
+              <div class="rec-align-bar-wrap">
+                <div class="rec-align-bar" style="width:{{ career_recommendation.alignment_score }}%"></div>
+              </div>
+              <span class="font-bold">{{ career_recommendation.alignment_score }}%</span>
+            </div>
+          {% endif %}
+          {% if career_recommendation.get('gap_analysis') %}
+            <div class="rec-gap mt-3">
+              <strong>Gap Analysis:</strong> {{ career_recommendation.gap_analysis }}
+            </div>
+          {% endif %}
+          {% if career_recommendation.get('action_plan') %}
+            <div class="mt-3">
+              <strong>Action Plan</strong>
+              <ol class="rec-plan">
+                {% for step in career_recommendation.action_plan %}<li>{{ step }}</li>{% endfor %}
+              </ol>
+            </div>
+          {% endif %}
+          {% if career_recommendation.get('timeline') %}
+            <div class="rec-timeline mt-3">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Timeline: <strong>{{ career_recommendation.timeline }}</strong>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    <div class="cta-card mt-3">
+      <div class="cta-icon">🚀</div>
+      <div>
+        <strong>Ready for your personalized interview?</strong>
+        <p class="muted-text">Your profile is fully analyzed. Start a mock interview tailored to your recommended career path.</p>
+      </div>
+      <a href="{{ url_for('interview_page') }}" class="btn btn-primary">Start Interview →</a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/resume.js') }}"></script>
+{% endblock %}

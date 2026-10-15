@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – InterviewMate AI{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Hero Stats -->
+<div class="stats-grid">
+  <div class="stat-card stat-card--primary">
+    <div class="stat-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    </div>
+    <div class="stat-body">
+      <div class="stat-value">{{ sessions|length }}</div>
+      <div class="stat-label">Interviews Taken</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card--success">
+    <div class="stat-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    </div>
+    <div class="stat-body">
+      {% set completed = sessions | selectattr('status', 'equalto', 'completed') | list %}
+      {% if completed %}
+        {% set avg = (completed | map(attribute='overall_score') | select | list | sum) / completed|length %}
+        <div class="stat-value">{{ '%.1f' | format(avg) }}/10</div>
+      {% else %}
+        <div class="stat-value">—</div>
+      {% endif %}
+      <div class="stat-label">Average Score</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card--warning">
+    <div class="stat-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </div>
+    <div class="stat-body">
+      {% if completed %}
+        {% set best = completed | map(attribute='overall_score') | select | list | max %}
+        <div class="stat-value">{{ '%.1f' | format(best) }}/10</div>
+      {% else %}
+        <div class="stat-value">—</div>
+      {% endif %}
+      <div class="stat-label">Best Score</div>
+    </div>
+  </div>
+  <div class="stat-card stat-card--purple">
+    <div class="stat-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    </div>
+    <div class="stat-body">
+      {% if plan %}
+        <div class="stat-value">Active</div>
+      {% else %}
+        <div class="stat-value">—</div>
+      {% endif %}
+      <div class="stat-label">Study Plan</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="charts-row">
+  <div class="card chart-card">
+    <div class="card-header">
+      <h3 class="card-title">Score Progress</h3>
+      <span class="card-badge">Last 10 interviews</span>
+    </div>
+    <div class="chart-container">
+      <canvas id="progressChart"></canvas>
+    </div>
+  </div>
+  <div class="card chart-card">
+    <div class="card-header">
+      <h3 class="card-title">Skills Breakdown</h3>
+      <span class="card-badge">Average scores</span>
+    </div>
+    <div class="chart-container">
+      <canvas id="skillsChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Career Scores (if resume analyzed) -->
+{% if career_scores %}
+<div class="card animate-fade-up" style="margin-bottom:18px;">
+  <div class="card-header">
+    <h3 class="card-title">Career Field Match</h3>
+    <a href="{{ url_for('resume_page') }}" class="link-sm">Re-analyze →</a>
+  </div>
+  <div class="career-score-list">
+    {% for role, score in career_scores.items() | sort(attribute='1', reverse=True) %}
+      <div class="career-score-item">
+        <div class="cs-label">{{ role }}</div>
+        <div class="cs-bar-wrap">
+          <div class="cs-bar {% if score >= 70 %}cs-bar-high{% elif score >= 45 %}cs-bar-mid{% else %}cs-bar-low{% endif %}" style="width:{{ score }}%"></div>
+        </div>
+        <div class="cs-score {% if score >= 70 %}score-good{% elif score >= 45 %}score-avg{% else %}score-low{% endif %}">{{ score }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Weak Topics & CTA -->
+<div class="bottom-grid">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Weak Areas to Improve</h3>
+    </div>
+    {% if plan %}
+      {% set plan_data = plan.plan_json | from_json %}
+      <p class="muted-text mb-3">{{ plan_data.get('summary', 'Keep practicing to improve your scores.') }}</p>
+    {% endif %}
+    <div class="weak-tags">
+      {% if avg_skills %}
+        {% for skill, score in avg_skills.items() %}
+          {% if score < 5.5 %}
+            <span class="tag tag--danger">{{ skill }} ({{ score }})</span>
+          {% elif score < 7 %}
+            <span class="tag tag--warning">{{ skill }} ({{ score }})</span>
+          {% else %}
+            <span class="tag tag--success">{{ skill }} ({{ score }})</span>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        <p class="muted-text">Complete an interview to see your skill breakdown.</p>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('interview_page') }}" class="btn btn-primary mt-4">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Start New Interview
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Recent Sessions</h3>
+    </div>
+    {% if sessions %}
+      <div class="session-list">
+        {% for s in sessions[:5] %}
+          <div class="session-item">
+            <div class="session-meta">
+              <span class="session-role">{{ s.job_role }}</span>
+              <span class="session-date">{{ s.created_at.strftime('%b %d') }}</span>
+            </div>
+            <div class="session-score-row">
+              <div class="progress-bar-wrap">
+                <div class="progress-bar" style="width: {{ ((s.overall_score or 0) / 10 * 100)|int }}%"></div>
+              </div>
+              {% if s.overall_score %}
+                <span class="score-badge {% if s.overall_score >= 7 %}score-good{% elif s.overall_score >= 5 %}score-avg{% else %}score-low{% endif %}">
+                  {{ '%.1f'|format(s.overall_score) }}
+                </span>
+              {% else %}
+                <span class="score-badge score-avg">—</span>
+              {% endif %}
+            </div>
+            {% if s.status == 'completed' %}
+              <a href="{{ url_for('results_page', session_id=s.id) }}" class="link-sm">View Results →</a>
+            {% else %}
+              <span class="tag tag--warning">In Progress</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>No interviews yet.<br><a href="{{ url_for('resume_page') }}">Upload your resume</a> to get started.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const progressScores = {{ scores | tojson }};
+  const progressDates  = {{ dates | tojson }};
+  const skillLabels    = {{ avg_skills.keys() | list | tojson }};
+  const skillValues    = {{ avg_skills.values() | list | tojson }};
+  initDashboardCharts(progressScores, progressDates, skillLabels, skillValues);
+</script>
+{% endblock %}

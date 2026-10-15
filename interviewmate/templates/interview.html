@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Mock Interview – InterviewMate AI{% endblock %}
+{% block page_title %}Mock Interview{% endblock %}
+
+{% block content %}
+<!-- Setup Screen -->
+<div id="setupScreen">
+  <div class="page-intro">
+    <h2 class="page-heading">AI Mock Interview</h2>
+    <p class="page-subheading">Configure your interview session. Our AI will ask questions based on your resume and adapt to your performance.</p>
+  </div>
+
+  <div class="setup-grid">
+    <div class="card setup-card">
+      <div class="card-header"><h3 class="card-title">Interview Setup</h3></div>
+
+      <div class="form-group">
+        <label class="form-label">Target Job Role</label>
+        <input type="text" id="jobRole" class="form-input" placeholder="e.g. Software Engineer, Data Analyst, Product Manager" value="Software Engineer" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Interview Type</label>
+        <div class="radio-grid">
+          <label class="radio-card">
+            <input type="radio" name="interviewType" value="mixed" checked />
+            <div class="radio-content">
+              <span class="radio-icon">🎯</span>
+              <strong>Mixed</strong>
+              <small>HR + Technical</small>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="interviewType" value="hr" />
+            <div class="radio-content">
+              <span class="radio-icon">🤝</span>
+              <strong>HR Round</strong>
+              <small>Behavioral</small>
+            </div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="interviewType" value="technical" />
+            <div class="radio-content">
+              <span class="radio-icon">💻</span>
+              <strong>Technical</strong>
+              <small>Coding & Concepts</small>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Difficulty Level</label>
+        <div class="difficulty-btns">
+          <button class="diff-btn" data-val="easy">Easy</button>
+          <button class="diff-btn active" data-val="medium">Medium</button>
+          <button class="diff-btn" data-val="hard">Hard</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Number of Questions</label>
+        <input type="range" id="qCount" min="3" max="12" value="8" class="slider" />
+        <span class="slider-val" id="qCountVal">8 questions</span>
+      </div>
+
+      <div class="adaptive-notice">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Adaptive mode enabled — difficulty auto-adjusts based on your answers.</span>
+      </div>
+
+      <button class="btn btn-primary btn-full mt-4" id="startInterviewBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start Interview
+      </button>
+    </div>
+
+    <div class="card tips-card">
+      <div class="card-header"><h3 class="card-title">Interview Tips</h3></div>
+      <ul class="tips-list">
+        <li><strong>STAR Method:</strong> Structure behavioral answers as Situation, Task, Action, Result.</li>
+        <li><strong>Be specific:</strong> Use real examples from your experience or projects.</li>
+        <li><strong>Think aloud:</strong> For technical questions, explain your reasoning.</li>
+        <li><strong>Time yourself:</strong> Aim for 2–3 minutes per answer.</li>
+        <li><strong>Stay calm:</strong> It's okay to take a moment to think before answering.</li>
+      </ul>
+      {% if user.skills %}
+        {% set skills = user.skills | from_json %}
+        <div class="card-header mt-3"><h4 class="card-title">Your Key Skills</h4></div>
+        <div class="skill-tags">
+          {% for s in skills[:8] %}<span class="tag tag--primary">{{ s }}</span>{% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Interview Screen -->
+<div id="interviewScreen" class="hidden">
+  <div class="interview-layout">
+    <!-- Progress Header -->
+    <div class="interview-header">
+      <div class="interview-meta">
+        <span id="interviewRole" class="meta-role"></span>
+        <span id="interviewType" class="meta-type"></span>
+      </div>
+      <div class="question-progress">
+        <span id="progressText">Question 1 of 8</span>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill" style="width:12%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question Card -->
+    <div class="card question-card" id="questionCard">
+      <div class="question-header">
+        <div class="q-meta">
+          <span class="q-num" id="qNum">Q1</span>
+          <span class="q-topic" id="qTopic">Topic</span>
+          <span class="q-type-badge" id="qTypeBadge">Technical</span>
+        </div>
+        <div class="q-difficulty medium" id="qDifficulty">Medium</div>
+      </div>
+      <div class="question-text" id="questionText">Loading question…</div>
+      <div class="question-hint hidden" id="questionHint">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="hintText"></span>
+      </div>
+    </div>
+
+    <!-- Answer Area -->
+    <div class="card answer-card">
+      <label class="form-label">Your Answer</label>
+      <textarea id="answerText" class="answer-textarea" placeholder="Type your answer here... Be detailed and specific. Use examples where applicable." rows="6"></textarea>
+      <div class="answer-footer">
+        <span class="char-count" id="charCount">0 words</span>
+        <div class="answer-btns">
+          <button class="btn btn-secondary" id="skipBtn">Skip</button>
+          <button class="btn btn-primary" id="submitAnswerBtn">
+            Submit Answer
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback Panel (shown after submit) -->
+    <div class="card feedback-card hidden" id="feedbackCard">
+      <div class="feedback-header">
+        <div>
+          <h3 class="card-title">AI Evaluation</h3>
+          <p class="muted-text" style="font-size:.8rem;margin-top:2px">Deep analysis by Alex (AI Interviewer)</p>
+        </div>
+        <div class="score-circle" id="scoreCircle">
+          <span id="scoreVal">—</span>
+          <small>/10</small>
+        </div>
+      </div>
+
+      <!-- Dimension Scores -->
+      <div class="dimension-grid" id="dimensionGrid"></div>
+
+      <!-- What went well -->
+      <div class="well-done" id="wellDoneSection" style="display:none;">
+        <h4>What You Did Well</h4>
+        <p id="fbWellDone"></p>
+      </div>
+
+      <!-- Coaching Feedback -->
+      <div class="feedback-main">
+        <h4>Coaching Feedback</h4>
+        <p id="fbFeedback"></p>
+      </div>
+
+      <!-- Model Answer -->
+      <div class="feedback-improved">
+        <h4>Expert Model Answer</h4>
+        <p id="fbImproved"></p>
+      </div>
+      <div class="missing-points" id="missingSection" style="display:none;">
+        <h4>Key Points Missed</h4>
+        <ul id="missingList"></ul>
+      </div>
+
+      <!-- Follow-up hint -->
+      <div class="follow-up-hint hidden" id="followUpSection">
+        <strong>Think About This Follow-up</strong>
+        <span id="fbFollowUp"></span>
+      </div>
+
+      <!-- Encouragement -->
+      <div class="encouragement-bar" id="encouragementBar" style="display:none;">
+        <span>&#10024;</span>
+        <span id="fbEncouragement"></span>
+      </div>
+
+      <div class="feedback-actions">
+        <button class="btn btn-primary" id="nextQuestionBtn">
+          Next Question
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Completion Screen -->
+<div id="completionScreen" class="hidden">
+  <div class="completion-layout">
+    <div class="completion-hero">
+      <div class="completion-icon">🎉</div>
+      <h2>Interview Complete!</h2>
+      <p class="muted-text">Great job finishing the interview. Here's your performance summary.</p>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header"><h3 class="card-title">Overall Score</h3></div>
+      <div class="overall-score-display">
+        <div class="big-score" id="finalScore">—</div>
+        <div class="score-label">out of 10</div>
+      </div>
+      <div id="breakdownGrid" class="breakdown-grid"></div>
+      <div class="completion-actions mt-4">
+        <a id="viewResultsBtn" href="#" class="btn btn-primary">View Full Results</a>
+        <a href="{{ url_for('interview_page') }}" class="btn btn-secondary">New Interview</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/interview.js') }}"></script>
+{% endblock %}

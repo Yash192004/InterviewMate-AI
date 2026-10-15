@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Study Plan – InterviewMate AI{% endblock %}
+{% block page_title %}Study Plan{% endblock %}
+
+{% block content %}
+<div class="page-intro animate-fade-up">
+  <h2 class="page-heading">Personalized Study Plan</h2>
+  <p class="page-subheading">AI-generated plan based on your interview performance and weak areas.</p>
+</div>
+
+{% if not plan_data %}
+  <div class="card empty-plan animate-fade-up">
+    <div class="empty-state">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.2">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <h3>No Study Plan Yet</h3>
+      <p class="muted-text">Complete at least one mock interview to generate your personalized study plan.</p>
+      <a href="{{ url_for('resume_page') }}" class="btn btn-primary mt-3">Start Here → Upload Resume</a>
+    </div>
+  </div>
+{% else %}
+
+  <!-- Summary Banner -->
+  <div class="plan-summary-card animate-fade-up delay-1">
+    <div class="plan-icon">📘</div>
+    <div>
+      <h3>Your Plan Summary</h3>
+      <p>{{ plan_data.get('summary', 'Follow this plan to improve your interview performance.') }}</p>
+      {% if plan_data.get('focus_areas') %}
+        <div class="focus-areas">
+          {% for fa in plan_data.get('focus_areas', []) %}
+            <span class="tag tag--primary">{{ fa }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Weekly Plan -->
+  {% if plan_data.get('weekly_plan') %}
+    <div style="display:flex;flex-direction:column;gap:16px;margin-top:18px;">
+      {% for week in plan_data.get('weekly_plan', []) %}
+        <div class="card animate-fade-up">
+          <div class="card-header">
+            <h3 class="card-title">Week {{ week.week }}</h3>
+            <span class="card-badge">{{ week.focus }}</span>
+          </div>
+          <div class="day-list">
+            {% for day in week.get('days', []) %}
+              <div class="day-item">
+                <div class="day-name">{{ day.day }}</div>
+                <div>
+                  <div class="day-task">{{ day.task }}</div>
+                  {% if day.get('goal') %}
+                    <div class="day-goal">🎯 {{ day.goal }}</div>
+                  {% endif %}
+                  <div class="day-meta">
+                    <span class="day-resource">📚 {{ day.resource }}</span>
+                    <span class="day-duration">⏱ {{ day.duration }}</span>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Resources -->
+  {% if plan_data.get('resources') %}
+    <div class="card mt-4 animate-fade-up">
+      <div class="card-header"><h3 class="card-title">Recommended Resources</h3></div>
+      <div class="resources-grid">
+        {% for r in plan_data.get('resources', []) %}
+          <div class="resource-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <div class="resource-type resource-type--{{ r.type }}">{{ r.type | upper }}</div>
+              {% if r.get('priority') == 'high' %}
+                <span class="tag tag--danger tag-sm">HIGH</span>
+              {% endif %}
+            </div>
+            <h4 class="resource-title">{{ r.title }}</h4>
+            <p class="resource-reason">{{ r.reason }}</p>
+            <span class="resource-hint">{{ r.url_hint }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Quick Tips -->
+  {% if plan_data.get('quick_tips') %}
+    <div class="card mt-4 animate-fade-up">
+      <div class="card-header"><h3 class="card-title">Quick Interview Tips</h3></div>
+      <div class="tips-grid">
+        {% for tip in plan_data.get('quick_tips', []) %}
+          <div class="tip-item">
+            <span class="tip-icon">{{ loop.index }}</span>
+            <span>{{ tip }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Daily Habit -->
+  {% if plan_data.get('daily_habit') %}
+    <div class="daily-habit mt-4 animate-fade-up">
+      <div class="daily-habit-icon">🌅</div>
+      <div>
+        <strong style="font-size:.8rem;display:block;margin-bottom:4px;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;">Daily Habit</strong>
+        <p>{{ plan_data.get('daily_habit') }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if plan %}
+    <p class="muted-text mt-3 text-center" style="font-size:.8rem;">Generated on {{ plan.created_at.strftime('%B %d, %Y') }}</p>
+  {% endif %}
+
+  <div class="plan-actions mt-3">
+    <a href="{{ url_for('interview_page') }}" class="btn btn-primary">Practice Now</a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">← Dashboard</a>
+  </div>
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Results – InterviewMate AI{% endblock %}
+{% block page_title %}Interview Results{% endblock %}
+
+{% block content %}
+<div class="page-intro animate-fade-up">
+  <h2 class="page-heading">Interview Results</h2>
+  <p class="page-subheading">{{ iv_session.job_role }} · {{ iv_session.created_at.strftime('%B %d, %Y') }} · {{ iv_session.interview_type | title }} · {{ iv_session.difficulty | title }}</p>
+</div>
+
+<!-- Score Hero -->
+<div class="card animate-fade-up delay-1" style="margin-bottom:18px;">
+  <div class="score-hero-inner">
+    <div class="score-donut-wrap">
+      <canvas id="scoreDonut" width="130" height="130"></canvas>
+      <div class="donut-label">
+        <span class="donut-score">{{ '%.1f'|format(iv_session.overall_score or 0) }}</span>
+        <small>/10</small>
+      </div>
+    </div>
+    <div class="score-hero-meta">
+      <h3>Overall Performance</h3>
+      {% set s = iv_session.overall_score or 0 %}
+      {% if s >= 7.5 %}
+        <span class="tag tag--success tag-lg">Excellent 🌟</span>
+        <p class="muted-text mt-2">Outstanding! You're well-prepared for this role.</p>
+      {% elif s >= 5.5 %}
+        <span class="tag tag--warning tag-lg">Good 👍</span>
+        <p class="muted-text mt-2">Solid performance with room to improve in a few areas.</p>
+      {% else %}
+        <span class="tag tag--danger tag-lg">Needs Work 📚</span>
+        <p class="muted-text mt-2">Keep practicing. Review your weak areas and follow the study plan.</p>
+      {% endif %}
+      <div class="meta-pills mt-3">
+        <span class="meta-pill">{{ questions|length }} Questions</span>
+        <span class="meta-pill">{{ iv_session.difficulty | title }} Difficulty</span>
+        {% if user and user.candidate_name %}<span class="meta-pill">{{ user.candidate_name }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dimension Avg (if available) -->
+{% if dim_avg %}
+<div class="card animate-fade-up delay-2" style="margin-bottom:18px;">
+  <div class="card-header">
+    <h3 class="card-title">Skill Dimensions (Session Average)</h3>
+    <span class="card-badge">Across all answers</span>
+  </div>
+  <div class="dimension-grid">
+    {% set dim_labels = {'technical_accuracy': 'Accuracy', 'depth': 'Depth', 'clarity': 'Clarity', 'relevance': 'Relevance', 'examples': 'Examples'} %}
+    {% for key, val in dim_avg.items() %}
+      <div class="dim-item">
+        <div class="dim-label">{{ dim_labels.get(key, key) }}</div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar {% if val >= 7 %}dim-bar-good{% elif val >= 5 %}dim-bar-avg{% else %}dim-bar-low{% endif %}" style="width:{{ (val/10*100)|int }}%"></div>
+        </div>
+        <div class="dim-score" style="color:{% if val >= 7 %}var(--success-dark){% elif val >= 5 %}#d97706{% else %}var(--danger){% endif %}">{{ '%.1f'|format(val) }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Breakdown Chart -->
+{% if breakdown %}
+<div class="card animate-fade-up delay-2" style="margin-bottom:18px;">
+  <div class="card-header">
+    <h3 class="card-title">Topic Breakdown</h3>
+  </div>
+  <div class="chart-container chart-medium">
+    <canvas id="breakdownChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Q&A Review -->
+<div class="card animate-fade-up delay-3" style="margin-bottom:18px;">
+  <div class="card-header">
+    <h3 class="card-title">Question Review</h3>
+    <span class="card-badge">{{ questions|length }} questions</span>
+  </div>
+  <div class="qa-list">
+    {% for q in questions %}
+      <div class="qa-item">
+        <div class="qa-header">
+          <div class="qa-meta">
+            <span class="q-num">Q{{ q.question_number }}</span>
+            <span class="qa-topic">{{ q.topic }}</span>
+            <span class="q-type-badge">{{ (q.question_type or 'general') | title }}</span>
+          </div>
+          <div class="qa-score {% if q.score and q.score >= 7 %}score-good{% elif q.score and q.score >= 5 %}score-avg{% else %}score-low{% endif %}">
+            {{ '%.1f'|format(q.score or 0) }}/10
+          </div>
+        </div>
+        <p class="qa-question">{{ q.question_text }}</p>
+
+        <details class="qa-details">
+          <summary>Your Answer &amp; Feedback</summary>
+          <div class="qa-expand">
+            <div class="qa-box qa-box--answer">
+              <label>Your Answer</label>
+              {{ q.user_answer or '(skipped)' }}
+            </div>
+            {% if q.what_went_well %}
+              <div class="qa-box" style="background:var(--success-light);border-left:3px solid var(--success)">
+                <label>What Went Well</label>
+                {{ q.what_went_well }}
+              </div>
+            {% endif %}
+            {% if q.feedback %}
+              <div class="qa-box qa-box--feedback">
+                <label>AI Coaching Feedback</label>
+                {{ q.feedback }}
+              </div>
+            {% endif %}
+            {% if q.improved_answer %}
+              <div class="qa-box qa-box--improved">
+                <label>Expert Model Answer</label>
+                {{ q.improved_answer }}
+              </div>
+            {% endif %}
+            {% if q.key_missing_points %}
+              {% set missing = q.key_missing_points | from_json_list %}
+              {% if missing %}
+                <div class="qa-box" style="background:var(--warning-light);border-left:3px solid var(--warning)">
+                  <label>Key Points Missed</label>
+                  <ul style="padding-left:16px;margin-top:4px;">
+                    {% for p in missing %}<li style="font-size:.85rem;">{{ p }}</li>{% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            {% endif %}
+          </div>
+        </details>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Improvement Plan Preview -->
+{% if plan_data %}
+<div class="card animate-fade-up" style="margin-bottom:18px;">
+  <div class="card-header">
+    <h3 class="card-title">Your Improvement Plan</h3>
+    <a href="{{ url_for('improvement_plan_page') }}" class="link-sm">View Full Plan →</a>
+  </div>
+  <p class="muted-text mb-3">{{ plan_data.get('summary', '') }}</p>
+  {% if plan_data.get('quick_tips') %}
+    <div class="tips-grid">
+      {% for tip in plan_data.get('quick_tips', []) %}
+        <div class="tip-item">
+          <span class="tip-icon">{{ loop.index }}</span>
+          <span>{{ tip }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="results-actions mt-4">
+  <a href="{{ url_for('interview_page') }}" class="btn btn-primary">Practice Again</a>
+  <a href="{{ url_for('improvement_plan_page') }}" class="btn btn-secondary">View Study Plan</a>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">← Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const breakdownLabels = {{ breakdown.keys() | list | tojson }};
+const breakdownValues = {{ breakdown.values() | list | tojson }};
+const overallScore    = {{ iv_session.overall_score or 0 }};
+initResultsCharts(overallScore, breakdownLabels, breakdownValues);
+</script>
+{% endblock %}

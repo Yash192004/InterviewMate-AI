@@ -1,0 +1,21 @@
+Flask>=3.0.0
+Flask-SQLAlchemy>=3.1.1
+Werkzeug>=3.0.1
+
+# PDF extraction
+pdfplumber>=0.10.3
+
+# DOCX extraction
+python-docx>=1.1.0
+
+# IBM watsonx.ai SDK (primary AI provider)
+ibm-watsonx-ai>=1.0.0
+
+# OpenAI SDK (fallback AI provider)
+openai>=1.30.0
+
+# Utility
+python-dotenv>=1.0.1
+
+# Production server (Render/Heroku deployment)
+gunicorn>=21.2.0
